@@ -1,15 +1,17 @@
 import numpy as np
 import pandas as pd
+import time
 import argparse
+from progress.bar import Bar
 
 parser = argparse.ArgumentParser(description='Argument to train KNN')
 parser.add_argument('--seed', type=int, default=0, help='random seed')
 parser.add_argument('--d-mode', type=str, default='Euclide', choices=['Euclide', 'Manhattan'], help='distance used in the algorithm')
 args = parser.parse_args()
 
-assert args.seed > 0, "The random seed must be a positive integer."
+assert args.seed >= 0, "The random seed must be a positive integer."
 
-K_list = [3, 5, 7]
+K_list = [3, 5, 7, 9, 11, 13, 15]
 TESTING_RATIO = 0.2  # 20% of training data for testing
 
 
@@ -49,31 +51,41 @@ def train():
 
     :return:
     """
+
+    start_training_time = time.time()
     accuracy_dict = {}
-    for k in K_list:
-        confusion_mat = np.zeros((2, 2))  # only two class: "2" and "4"
-        for i in range(data_test.shape[0]):
-            list_class_dis = []
-            for j in range(data_train.shape[0]):
-                d = distance(data_test[i][range(num_features)], data_train[j][range(num_features)], mode=args.d_mode)
-                list_class_dis.append([data_train[j][-1], d])
-            arr_class_dis = np.asarray(list_class_dis)
-            predicted_class = np.bincount(arr_class_dis[:, 0][range(k)].astype(int)).argmax()
+
+    # confusion matrix
+    confusion_mat = np.zeros((len(K_list), 2, 2))  # only two class: "2" and "4"
+    bar = Bar('Training', max=data_test.shape[0])
+    for i in range(data_test.shape[0]):
+        list_class_distance = []
+        for j in range(data_train.shape[0]):
+            d = distance(data_test[i][range(num_features)], data_train[j][range(num_features)], mode=args.d_mode)
+            list_class_distance.append((data_train[j][-1], d))
+        arr_class_distance = np.array(list_class_distance, dtype=[('class', int), ('distance', np.float64)])
+        arr_class_distance = np.sort(arr_class_distance, order='distance')
+        for l in range(len(K_list)):
+            predicted_class = np.bincount(arr_class_distance['class'][range(K_list[l])].astype(int)).argmax()
             # fill the confusion matrix
             if data_test[i][-1] == 2:
                 if predicted_class == data_test[i][-1]:
-                    confusion_mat[0, 0] += 1
+                    confusion_mat[l, 0, 0] += 1
                 else:
-                    confusion_mat[0, 1] += 1
+                    confusion_mat[l, 0, 1] += 1
             else:
                 if predicted_class == data_test[i][-1]:
-                    confusion_mat[1, 1] += 1
+                    confusion_mat[l, 1, 1] += 1
                 else:
-                    confusion_mat[1, 0] += 1
-        # accuracy
-        print(confusion_mat)
-        acc = (confusion_mat[0, 0]+confusion_mat[1, 1])/np.sum(confusion_mat)
-        accuracy_dict.update({k: acc})
+                    confusion_mat[l, 1, 0] += 1
+        bar.next()
+    bar.finish()
+    # accuracy
+    acc = (confusion_mat[:, 0, 0]+confusion_mat[:, 1, 1])/np.sum(confusion_mat, axis=(1, 2))
+    for l in range(len(K_list)):
+        accuracy_dict.update({K_list[l]: '{0:.4f}'.format(acc[l])})
+
+    print('Training time: {0:.4f} seconds'.format(time.time()-start_training_time))
     print("Dictionary of accuracy: ", accuracy_dict)
     print("Distance used: ", args.d_mode)
 
