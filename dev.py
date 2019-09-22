@@ -23,9 +23,10 @@ f = open("./data/breast-cancer-wisconsin.data", "r")
 raw_data      = f.read()
 replaced_data = raw_data.replace('?', '-1')
 lines         = replaced_data.split('\n')
-num_lines     = len(lines)-1                # the last line is an empty string
+num_lines     = len(lines)-1 #the last line is an empty string
 num_col       = 11
 
+#creation of an array containing the data
 data = np.zeros((num_lines, num_col), dtype=int)
 
 for k in range(num_lines):
